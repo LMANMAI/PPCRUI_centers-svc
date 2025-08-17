@@ -3,14 +3,12 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CentersService } from './centers.service';
 import { CreateCenterDto, UpdateCenterDto } from './dto/create-center.dto';
 
-// Tipos locales (si los necesitás)
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 @Controller()
 export class CentersController {
   constructor(private readonly service: CentersService) {}
 
-  // Lectura
   @MessagePattern('centers.list')
   list(@Payload() p?: { includeInactive?: boolean }) {
     return this.service.list(p?.includeInactive);
@@ -21,7 +19,6 @@ export class CentersController {
     return this.service.findById(id);
   }
 
-  // Solicitudes (crear/editar/eliminar)
   @MessagePattern('centers.req.create')
   reqCreate(@Payload() p: { payload: CreateCenterDto; createdBy?: string }) {
     return this.service.requestCreate(p.payload, p.createdBy);
