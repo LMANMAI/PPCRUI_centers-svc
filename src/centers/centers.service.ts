@@ -5,7 +5,6 @@ import { CreateCenterDto, UpdateCenterDto } from './dto/create-center.dto';
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 type RequestType = 'CREATE' | 'UPDATE' | 'DELETE';
 
-// ---------- type guards ----------
 const isCreateCenterDto = (x: any): x is CreateCenterDto =>
   x &&
   typeof x === 'object' &&
@@ -59,10 +58,29 @@ function toUpdateData(dto: UpdateCenterDto) {
   if (dto.respLicense !== undefined) data.respLicense = dto.respLicense ?? null;
   return data;
 }
+const KEEP_REQUESTS_HISTORY =
+  (process.env.KEEP_REQUESTS_HISTORY ?? 'true').toLowerCase() !== 'false';
 
 @Injectable()
 export class CentersService {
   constructor(private prisma: PrismaService) {}
+
+  private async finalizeRequest(
+    id: number,
+    patch: {
+      status: 'APPROVED' | 'REJECTED';
+      reviewedBy?: string;
+      reviewNote?: string;
+      appliedAt?: Date;
+    },
+  ) {
+    if (KEEP_REQUESTS_HISTORY) {
+      return this.prisma.centerRequest.update({ where: { id }, data: patch });
+    } else {
+      await this.prisma.centerRequest.delete({ where: { id } });
+      return { requestId: id, ...patch, deleted: true };
+    }
+  }
 
   list(includeInactive = false) {
     return this.prisma.center.findMany({
@@ -132,28 +150,24 @@ export class CentersService {
       throw new Error('La solicitud no está pendiente');
 
     if (req.type === 'CREATE') {
-      const raw = (req.payload ?? {}) as unknown; // cast intermedio
+      const raw = (req.payload ?? {}) as unknown;
       if (!isCreateCenterDto(raw)) {
         throw new Error('Payload inválido: name y address son requeridos');
       }
       const created = await this.prisma.center.create({
         data: toCreateData(raw),
       });
-      return this.prisma.centerRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'APPROVED',
-          reviewedBy,
-          reviewNote,
-          appliedAt: new Date(),
-          centerId: created.id,
-        },
+      return this.finalizeRequest(requestId, {
+        status: 'APPROVED',
+        reviewedBy,
+        reviewNote,
+        appliedAt: new Date(),
       });
     }
 
     if (req.type === 'UPDATE') {
       if (!req.centerId) throw new Error('centerId requerido');
-      const raw = (req.payload ?? {}) as unknown; // cast intermedio
+      const raw = (req.payload ?? {}) as unknown;
       if (!isUpdateCenterDto(raw)) {
         throw new Error('Payload inválido para UPDATE');
       }
@@ -161,14 +175,11 @@ export class CentersService {
         where: { id: req.centerId },
         data: toUpdateData(raw),
       });
-      return this.prisma.centerRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'APPROVED',
-          reviewedBy,
-          reviewNote,
-          appliedAt: new Date(),
-        },
+      return this.finalizeRequest(requestId, {
+        status: 'APPROVED',
+        reviewedBy,
+        reviewNote,
+        appliedAt: new Date(),
       });
     }
 
@@ -176,16 +187,13 @@ export class CentersService {
       if (!req.centerId) throw new Error('centerId requerido');
       await this.prisma.center.update({
         where: { id: req.centerId },
-        data: { status: 'INACTIVE' }, // soft delete
+        data: { status: 'INACTIVE' },
       });
-      return this.prisma.centerRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'APPROVED',
-          reviewedBy,
-          reviewNote,
-          appliedAt: new Date(),
-        },
+      return this.finalizeRequest(requestId, {
+        status: 'APPROVED',
+        reviewedBy,
+        reviewNote,
+        appliedAt: new Date(),
       });
     }
 
@@ -195,9 +203,10 @@ export class CentersService {
   }
 
   rejectRequest(requestId: number, reviewedBy?: string, reviewNote?: string) {
-    return this.prisma.centerRequest.update({
-      where: { id: requestId },
-      data: { status: 'REJECTED', reviewedBy, reviewNote },
+    return this.finalizeRequest(requestId, {
+      status: 'REJECTED',
+      reviewedBy,
+      reviewNote,
     });
   }
 }
