@@ -39,10 +39,9 @@ async function bootstrap() {
 
   await app.startAllMicroservices();
 
-  // ✅ Prisma: conexión y cierre limpio al apagar el proceso
   const prisma = app.get(PrismaService);
-  await prisma.$connect(); // opcional (onModuleInit ya conecta)
-  await prisma.enableShutdownHooks(app); // importante para SIGTERM/SIGINT
+  await prisma.$connect();
+  await prisma.enableShutdownHooks(app);
 
   const config = new DocumentBuilder()
     .setTitle('centers-svc (internal)')
@@ -59,9 +58,7 @@ async function bootstrap() {
   log.log(`HTTP → http://localhost:${HTTP_PORT}`);
   log.log(`Swagger → http://localhost:${HTTP_PORT}/docs`);
   if (process.env.DATABASE_URL) {
-    log.log(
-      `DB → ${process.env.DATABASE_URL.replace(/:\/\/.*@/, '://****@')}`, // oculta pass
-    );
+    log.log(`DB → ${process.env.DATABASE_URL.replace(/:\/\/.*@/, '://****@')}`);
   }
 }
 bootstrap();

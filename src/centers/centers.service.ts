@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service'; // ← ajustá si tu ruta difiere
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCenterDto, UpdateCenterDto } from './dto/create-center.dto';
 
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -13,16 +13,13 @@ const isCreateCenterDto = (x: any): x is CreateCenterDto =>
   typeof x.address === 'string';
 
 const isUpdateCenterDto = (x: any): x is UpdateCenterDto =>
-  x && typeof x === 'object'; // podés refinar validaciones si querés
+  x && typeof x === 'object';
 
-// ---------- mapeos a Prisma ----------
 function toCreateData(dto: CreateCenterDto) {
   return {
     // obligatorios
     name: dto.name,
     address: dto.address,
-
-    // opcionales (null si no vienen)
     zone: dto.zone ?? null,
     capacity: dto.capacity ?? null,
     latitude: dto.latitude ?? null,
@@ -37,8 +34,6 @@ function toCreateData(dto: CreateCenterDto) {
     respFullName: dto.respFullName ?? null,
     respPhone: dto.respPhone ?? null,
     respLicense: dto.respLicense ?? null,
-
-    // soft-delete por defecto
     status: 'ACTIVE' as const,
   };
 }
@@ -65,12 +60,10 @@ function toUpdateData(dto: UpdateCenterDto) {
   return data;
 }
 
-// ---------- service ----------
 @Injectable()
 export class CentersService {
   constructor(private prisma: PrismaService) {}
 
-  // Lectura (solo activos por defecto)
   list(includeInactive = false) {
     return this.prisma.center.findMany({
       where: includeInactive ? {} : { status: 'ACTIVE' },
@@ -82,12 +75,11 @@ export class CentersService {
     return this.prisma.center.findUnique({ where: { id } });
   }
 
-  // Solicitudes
   async requestCreate(payload: CreateCenterDto, createdBy?: string) {
     return this.prisma.centerRequest.create({
       data: {
         type: 'CREATE',
-        payload: payload as any, // guardamos JSON plano
+        payload: payload as any,
         createdBy,
       },
     });
@@ -113,7 +105,7 @@ export class CentersService {
       data: {
         type: 'DELETE',
         centerId,
-        payload: {}, // vacío
+        payload: {},
         reason,
         createdBy,
       },
@@ -127,7 +119,6 @@ export class CentersService {
     });
   }
 
-  // Aprobación / Rechazo
   async approveRequest(
     requestId: number,
     reviewedBy?: string,
