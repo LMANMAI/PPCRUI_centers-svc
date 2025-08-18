@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum CenterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequestType {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum DocumentType {
+  MUNICIPAL_HABILITATION
+  PLAN_APPROVED
+  PROTOCOL
+  OTHER
+}
+
+model Center {
+  id           Int               @id @default(autoincrement())
+  name         String
+  address      String
+  zone         String?
+  capacity     Int?
+  latitude     Float?
+  longitude    Float?
+  description  String?
+  phone        String?
+  email        String?
+  startDay     DayOfWeek?
+  endDay       DayOfWeek?
+  openTime     String?
+  closeTime    String?
+  respFullName String?
+  respPhone    String?
+  respLicense  String?
+  status       CenterStatus      @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  specialties  CenterSpecialty[]
+  documents    CenterDocument[]
+  requests     CenterRequest[]
+}
+
+model CenterRequest {
+  id         Int           @id @default(autoincrement())
+  type       RequestType
+  status     RequestStatus @default(PENDING)
+  centerId   Int? // null en CREATE; requerido en UPDATE/DELETE
+  payload    Json // datos propuestos (Create/Update)
+  reason     String? // motivo (ej. baja)
+  createdBy  String? // usuario que solicita
+  reviewedBy String? // usuario que aprueba/rechaza
+  reviewNote String?
+  appliedAt  DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  center Center? @relation(fields: [centerId], references: [id], onDelete: SetNull)
+}
+
+model Specialty {
+  id      Int               @id @default(autoincrement())
+  name    String            @unique
+  centers CenterSpecialty[]
+}
+
+model CenterSpecialty {
+  centerId    Int
+  specialtyId Int
+  center      Center    @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  specialty   Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([centerId, specialtyId])
+}
+
+model CenterDocument {
+  id        Int          @id @default(autoincrement())
+  centerId  Int
+  type      DocumentType
+  url       String
+  filename  String?
+  mime      String?
+  size      Int?
+  createdAt DateTime     @default(now())
+
+  center Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  jti       String   @unique
+  hash      String
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AuthLocalProfile {
+  userId    String      @id
+  orgId     String
+  profile   ProfileType
+  name      String?
+  centerId  String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum ProfileType {
+  PATIENT
+  CENTER_ADMIN
+  ORG_ADMIN
+}
+
+model Credential {
+  id           String   @id @default(uuid())
+  orgId        String
+  userId       String
+  email        String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  profile  ProfileType @default(PATIENT)
+  name     String?
+  centerId String?
+
+  @@unique([orgId, email], name: "orgId_email")
+  @@map("credential")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Appointment {
+  id            String            @id @default(uuid())
+  orgId         String
+  centerId      String
+  patientUserId String
+  status        AppointmentStatus @default(PENDING)
+  startAt       DateTime
+  endAt         DateTime
+  notes         String?
+  cancelReason  String?
+  cancelledAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([orgId, centerId, startAt])
+  @@index([patientUserId, startAt])
+}
