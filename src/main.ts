@@ -11,13 +11,15 @@ const log = new Logger('centers-svc');
 const MS_TRANSPORT = process.env.MS_TRANSPORT ?? 'TCP';
 const useTcp = MS_TRANSPORT === 'TCP';
 
-const HTTP_PORT = Number(process.env.SERVICE_PORT) || 3101;
-const TCP_HOST = process.env.TCP_HOST || '127.0.0.1';
-const TCP_PORT = Number(process.env.TCP_PORT) || 4010;
+// HTTP interno (swagger/debug)
+const HTTP_PORT = Number(process.env.SERVICE_PORT ?? 3102);
+
+//claves usadas por docker-compose
+const TCP_HOST = process.env.MS_HOST ?? '0.0.0.0';
+const TCP_PORT = Number(process.env.MS_TCP_PORT ?? 4030);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
-
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   if (useTcp) {
@@ -25,6 +27,7 @@ async function bootstrap() {
       transport: Transport.TCP,
       options: { host: TCP_HOST, port: TCP_PORT },
     });
+    log.log(`MS (TCP) → ${TCP_HOST}:${TCP_PORT}`);
   } else {
     app.connectMicroservice<RmqOptions>({
       transport: Transport.RMQ,
@@ -35,6 +38,7 @@ async function bootstrap() {
         prefetchCount: Number(process.env.RMQ_PREFETCH ?? 10),
       },
     });
+    log.log(`MS (RMQ) → queue=${process.env.RMQ_QUEUE || 'centers_queue'}`);
   }
 
   await app.startAllMicroservices();
@@ -54,9 +58,8 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, doc);
 
   await app.listen(HTTP_PORT);
-
-  log.log(`HTTP → http://localhost:${HTTP_PORT}`);
-  log.log(`Swagger → http://localhost:${HTTP_PORT}/docs`);
+  log.log(`HTTP → http://0.0.0.0:${HTTP_PORT}`);
+  log.log(`Swagger → http://0.0.0.0:${HTTP_PORT}/docs`);
   if (process.env.DATABASE_URL) {
     log.log(`DB → ${process.env.DATABASE_URL.replace(/:\/\/.*@/, '://****@')}`);
   }
