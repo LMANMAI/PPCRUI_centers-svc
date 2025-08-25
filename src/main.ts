@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Transport, TcpOptions, RmqOptions } from '@nestjs/microservices';
@@ -6,15 +9,25 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 
+const ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
+const isProd = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+
+if (!isProd) {
+  for (const file of [`.env.${ENV}.local`, `.env.${ENV}`, '.env']) {
+    const p = path.resolve(process.cwd(), file);
+    if (fs.existsSync(p)) {
+      dotenv.config({ path: p, override: false });
+    }
+  }
+} else {
+}
+
 const log = new Logger('centers-svc');
 
 const MS_TRANSPORT = process.env.MS_TRANSPORT ?? 'TCP';
 const useTcp = MS_TRANSPORT === 'TCP';
-
-// HTTP interno (swagger/debug)
 const HTTP_PORT = Number(process.env.SERVICE_PORT ?? 3102);
 
-//claves usadas por docker-compose
 const TCP_HOST = process.env.MS_HOST ?? '0.0.0.0';
 const TCP_PORT = Number(process.env.MS_TCP_PORT ?? 4030);
 
@@ -43,9 +56,13 @@ async function bootstrap() {
 
   await app.startAllMicroservices();
 
-  const prisma = app.get(PrismaService);
-  await prisma.$connect();
-  await prisma.enableShutdownHooks(app);
+  const prisma = app.get(PrismaService) as any;
+  if (typeof prisma?.$connect === 'function') {
+    await prisma.$connect();
+  }
+  if (typeof prisma?.enableShutdownHooks === 'function') {
+    await prisma.enableShutdownHooks(app);
+  }
 
   const config = new DocumentBuilder()
     .setTitle('centers-svc (internal)')
@@ -61,7 +78,9 @@ async function bootstrap() {
   log.log(`HTTP → http://0.0.0.0:${HTTP_PORT}`);
   log.log(`Swagger → http://0.0.0.0:${HTTP_PORT}/docs`);
   if (process.env.DATABASE_URL) {
-    log.log(`DB → ${process.env.DATABASE_URL.replace(/:\/\/.*@/, '://****@')}`);
+    log.log(
+      `DB → ${String(process.env.DATABASE_URL).replace(/:\/\/.*@/, '://****@')}`,
+    );
   }
 }
 bootstrap();

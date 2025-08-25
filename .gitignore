@@ -5,3 +5,7 @@ package-lock.json
 .env
 dist
 
+
+.env.development.docker
+.env.development
+prisma/migrations
