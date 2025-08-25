@@ -6,3 +6,9 @@ package-lock.json
 dist
 
 Dockerfile
+.env.development.docker
+.env.development
+prisma/migrations/20250825024727_init/migration.sql
+prisma/migrations/migration_lock.toml
+prisma/schema.prisma
+prisma/schema.prisma
