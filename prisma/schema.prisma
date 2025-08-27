@@ -66,17 +66,19 @@ model Center {
   specialties  CenterSpecialty[]
   documents    CenterDocument[]
   requests     CenterRequest[]
+  slots        Slot[]            
+  appointments Appointment[]
 }
 
 model CenterRequest {
   id         Int           @id @default(autoincrement())
   type       RequestType
   status     RequestStatus @default(PENDING)
-  centerId   Int? // null en CREATE; requerido en UPDATE/DELETE
-  payload    Json // datos propuestos (Create/Update)
-  reason     String? // motivo (ej. baja)
-  createdBy  String? // usuario que solicita
-  reviewedBy String? // usuario que aprueba/rechaza
+  centerId   Int?
+  payload    Json
+  reason     String?
+  createdBy  String?
+  reviewedBy String?
   reviewNote String?
   appliedAt  DateTime?
   createdAt  DateTime      @default(now())
@@ -137,6 +139,8 @@ enum ProfileType {
   PATIENT
   CENTER_ADMIN
   ORG_ADMIN
+  OPERADOR_SALUD
+  PERSONAL_SALUD
 }
 
 model Credential {
@@ -162,11 +166,22 @@ enum AppointmentStatus {
   COMPLETED
 }
 
+enum SlotStatus {
+  FREE
+  BOOKED
+}
+
 model Appointment {
   id            String            @id @default(uuid())
   orgId         String
-  centerId      String
+  centerId      Int
+  center        Center            @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
   patientUserId String
+  staffUserId   String?
+  slotId        String?  @unique
+  slot          Slot?    @relation(fields: [slotId], references: [id])
+
   status        AppointmentStatus @default(PENDING)
   startAt       DateTime
   endAt         DateTime
@@ -178,4 +193,23 @@ model Appointment {
 
   @@index([orgId, centerId, startAt])
   @@index([patientUserId, startAt])
+  @@index([staffUserId, startAt])
+}
+
+model Slot {
+  id           String     @id @default(uuid())
+  centerId     Int
+  center       Center     @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  staffUserId  String
+  startAt      DateTime
+  endAt        DateTime
+
+  status       SlotStatus @default(FREE)
+  reservedById String?
+
+  appointment  Appointment?
+
+  @@unique([staffUserId, startAt])
+  @@index([centerId, staffUserId, startAt])
 }
