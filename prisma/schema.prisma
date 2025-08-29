@@ -193,24 +193,25 @@ enum SlotSpecialty {
 }
 
 model Slot {
-  id           String     @id @default(uuid())
-  centerId     Int
-  staffUserId  String        // operador/asignado
-  patientUserId String?      // paciente
-
-  startAt      DateTime
-  endAt        DateTime
-  specialty    SlotSpecialty?  
-  status       SlotStatus @default(FREE)
+  id            String     @id @default(uuid())
+  centerId      Int
+  center        Center   @relation(fields: [centerId], references: [id], onDelete: Cascade)
   
+  staffUserId   String        // operador/asignado
+  patientUserId String?       // paciente
+
+  startAt       DateTime
+  endAt         DateTime
+  specialty     SlotSpecialty?
+  status        SlotStatus @default(FREE)
+
   notes         String?
   cancelReason  String?
   cancelledAt   DateTime?
-  
+
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  @@unique([staffUserId, startAt])
   @@index([centerId, startAt])
   @@index([patientUserId, startAt])
   @@index([staffUserId, startAt])
