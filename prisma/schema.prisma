@@ -66,17 +66,18 @@ model Center {
   specialties  CenterSpecialty[]
   documents    CenterDocument[]
   requests     CenterRequest[]
+  slots        Slot[]            
 }
 
 model CenterRequest {
   id         Int           @id @default(autoincrement())
   type       RequestType
   status     RequestStatus @default(PENDING)
-  centerId   Int? // null en CREATE; requerido en UPDATE/DELETE
-  payload    Json // datos propuestos (Create/Update)
-  reason     String? // motivo (ej. baja)
-  createdBy  String? // usuario que solicita
-  reviewedBy String? // usuario que aprueba/rechaza
+  centerId   Int?
+  payload    Json
+  reason     String?
+  createdBy  String?
+  reviewedBy String?
   reviewNote String?
   appliedAt  DateTime?
   createdAt  DateTime      @default(now())
@@ -137,46 +138,81 @@ enum ProfileType {
   PATIENT
   CENTER_ADMIN
   ORG_ADMIN
+  OPERADOR_SALUD
+  PERSONAL_SALUD
 }
 
 model Credential {
-  id                String   @id @default(uuid())
-  orgId             String
-  userId            String
-  email             String       @unique  
-  passwordHash      String
-  createdAt         DateTime @default(now())
-  dni               String   @unique
-  profile           ProfileType @default(PATIENT)
-  name              String?
-  centerId          String?
+  id           String   @id @default(uuid())
+  orgId        String
+  userId       String
+  email        String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  dni               String
+  profile  ProfileType @default(PATIENT)
+  name     String?
+  centerId String?
   telefono          String?
   usuarioVerificado Boolean   @default(false)
 
+  @@unique([orgId, email], name: "orgId_email")
+  @@unique([orgId, dni],      name: "orgId_dni")
   @@map("credential")
 }
 
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
+
+
+enum SlotStatus {
+  FREE        // disponible
+  RESERVED    // tomado por paciente
+  CONFIRMED   // confirmado
+  CANCELLED   // cancelado
+  COMPLETED   // atendido
 }
 
-model Appointment {
-  id            String            @id @default(uuid())
-  orgId         String
-  centerId      String
-  patientUserId String
-  status        AppointmentStatus @default(PENDING)
+
+enum SlotSpecialty {
+  CLINICA_MEDICA
+  CARDIOLOGIA
+  PEDIATRIA
+  GINECOLOGIA
+  OBSTETRICIA
+  TRAUMATOLOGIA
+  DERMATOLOGIA
+  NEUROLOGIA
+  PSICOLOGIA
+  PSIQUIATRIA
+  ODONTOLOGIA
+  KINESIOLOGIA
+  NUTRICION
+  FONOAUDIOLOGIA
+  OFTALMOLOGIA
+  OTORRINOLARINGOLOGIA
+  UROLOGIA
+}
+
+model Slot {
+  id            String     @id @default(uuid())
+  centerId      Int
+  center        Center   @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  
+  staffUserId   String        // operador/asignado
+  patientUserId String?       // paciente
+
   startAt       DateTime
   endAt         DateTime
+  specialty     SlotSpecialty?
+  status        SlotStatus @default(FREE)
+
   notes         String?
   cancelReason  String?
   cancelledAt   DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
 
-  @@index([orgId, centerId, startAt])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([centerId, startAt])
   @@index([patientUserId, startAt])
+  @@index([staffUserId, startAt])
 }
